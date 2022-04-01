@@ -111,51 +111,51 @@ const MainListItems = (props) => {
         primary={i18n.t("mainDrawer.listItems.quickAnswers")}
         icon={<QuestionAnswerOutlinedIcon />}
       />
-      <ListItemLink
+      {/* <ListItemLink
               to="/ZDGChatbot"
               primary={i18n.t("mainDrawer.listItems.ZDGChatbot")}
         icon={<ChatIcon />}
-      />
+      /> */}
       <ListItemLink
-              to="/ZDGAgendamento"
-              primary={i18n.t("mainDrawer.listItems.ZDGAgendamento")}
-              icon={<ScheduleIcon />}
+        to="/ZDGAgendamento"
+        primary={i18n.t("mainDrawer.listItems.ZDGAgendamento")}
+        icon={<ScheduleIcon />}
       />
-      <ListItemLink
+      {/* <ListItemLink
               to="/ZDGHistorico"
               primary={i18n.t("mainDrawer.listItems.ZDGHistorico")}
               icon={<SubjectIcon />}
+      /> */}
+      <ListItemLink
+        to="/ZDG"
+        primary={i18n.t("mainDrawer.listItems.ZDG")}
+        icon={<SendIcon />}
       />
       <ListItemLink
-              to="/ZDG"
-              primary={i18n.t("mainDrawer.listItems.ZDG")}
-              icon={<SendIcon />}
+        to="/ZDGMedia"
+        primary={i18n.t("mainDrawer.listItems.ZDGMedia")}
+        icon={<BurstModeIcon />}
       />
       <ListItemLink
-              to="/ZDGMedia"
-              primary={i18n.t("mainDrawer.listItems.ZDGMedia")}
-              icon={<BurstModeIcon />}
+        to="/ZDGGroups"
+        primary={i18n.t("mainDrawer.listItems.ZDGGroups")}
+        icon={<GroupIcon />}
       />
-      <ListItemLink
-              to="/ZDGGroups"
-              primary={i18n.t("mainDrawer.listItems.ZDGGroups")}
-              icon={<GroupIcon />}
-      />
-      <ListItemLink
+      {/* <ListItemLink
               to="/InstaDirect"
               primary={i18n.t("mainDrawer.listItems.Direct")}
               icon={<InstagramIcon />}
-      />
-      <ListItemLink
+      /> */}
+      {/* <ListItemLink
               to="/SMS"
               primary={i18n.t("mainDrawer.listItems.SMS")}
               icon={<TextsmsIcon />}
-      />
-      <ListItemLink
+      /> */}
+      {/* <ListItemLink
               to="/VoiceCall"
               primary={i18n.t("mainDrawer.listItems.VoiceCall")}
               icon={<PhoneInTalkIcon />}
-      />
+      /> */}
       <Can
         role={user.profile}
         perform="drawer-admin-items:view"
