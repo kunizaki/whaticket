@@ -17,13 +17,13 @@ import QuestionAnswerOutlinedIcon from "@material-ui/icons/QuestionAnswerOutline
 import BallotIcon from '@material-ui/icons/Ballot';
 import GroupIcon from '@material-ui/icons/Group';
 import SendIcon from '@material-ui/icons/Send';
-import TextsmsIcon from '@material-ui/icons/Textsms';
-import PhoneInTalkIcon from '@material-ui/icons/PhoneInTalk';
+// import TextsmsIcon from '@material-ui/icons/Textsms';
+// import PhoneInTalkIcon from '@material-ui/icons/PhoneInTalk';
 import BurstModeIcon from '@material-ui/icons/BurstMode';
-import InstagramIcon from '@material-ui/icons/Instagram';
-import ChatIcon from '@material-ui/icons/Chat';
+// import InstagramIcon from '@material-ui/icons/Instagram';
+// import ChatIcon from '@material-ui/icons/Chat';
 import ScheduleIcon from '@material-ui/icons/Schedule';
-import SubjectIcon from '@material-ui/icons/Subject';
+// import SubjectIcon from '@material-ui/icons/Subject';
 
 import { i18n } from "../translate/i18n";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";

@@ -18,17 +18,38 @@ const whatsapp_web_js_1 = require("whatsapp-web.js");
 const socket_1 = require("./socket");
 const AppError_1 = __importDefault(require("../errors/AppError"));
 const logger_1 = require("../utils/logger");
+const ShowTicketService_1 = __importDefault(require("../services/TicketServices/ShowTicketService"));
 const wbotMessageListener_1 = require("../services/WbotServices/wbotMessageListener");
+const db = require('../helpers/Db');
 const sessions = [];
 
-//webhook dialogflow
-const express = require('express');
-const app2 = express();
-const { WebhookClient } = require('dialogflow-fulfillment');
-const dialogflow = require('@google-cloud/dialogflow');
 
-//webhook dialogflow
-if (process.env.DIALOGFLOWCONFIG) {
+const syncUnreadMessages = (wbot) => __awaiter(void 0, void 0, void 0, function* () {
+    const chats = yield wbot.getChats();
+    /* eslint-disable no-restricted-syntax */
+    /* eslint-disable no-await-in-loop */
+    for (const chat of chats) {
+        if (chat.unreadCount > 0) {
+            const unreadMessages = yield chat.fetchMessages({
+                limit: chat.unreadCount
+            });
+            for (const msg of unreadMessages) {
+                yield wbotMessageListener_1.handleMessage(msg, wbot);
+            }
+            yield chat.sendSeen();
+        }
+    }
+});
+
+if (process.env.DIALOGFLOWKEY.length > 0) {
+    //webhook dialogflow
+    const express = require('express');
+    const app2 = express();
+    const { WebhookClient } = require('dialogflow-fulfillment');
+    const dialogflow = require('@google-cloud/dialogflow');
+
+    //webhook dialogflow
+
     app2.post('/webhook', function (request, response) {
         const agent = new WebhookClient({ request, response });
 
@@ -51,8 +72,7 @@ if (process.env.DIALOGFLOWCONFIG) {
     }
 
     //dialogflow mensagens
-    const sessionClient = new dialogflow.SessionsClient({ keyFilename: process.env.DIALOGFLOWCONFIG });
-
+    const sessionClient = new dialogflow.SessionsClient({ keyFilename: 'dialogflow.json' });
     async function detectIntent(
         projectId,
         sessionId,
@@ -115,117 +135,184 @@ if (process.env.DIALOGFLOWCONFIG) {
             }
         }
     }
-}
 
-const syncUnreadMessages = (wbot) => __awaiter(void 0, void 0, void 0, function* () {
-    const chats = yield wbot.getChats();
-    /* eslint-disable no-restricted-syntax */
-    /* eslint-disable no-await-in-loop */
-    for (const chat of chats) {
-        if (chat.unreadCount > 0) {
-            const unreadMessages = yield chat.fetchMessages({
-                limit: chat.unreadCount
-            });
-            for (const msg of unreadMessages) {
-                yield wbotMessageListener_1.handleMessage(msg, wbot);
-            }
-            yield chat.sendSeen();
-        }
-    }
-});
-exports.initWbot = (whatsapp) => __awaiter(void 0, void 0, void 0, function* () {
-    return new Promise((resolve, reject) => {
-        try {
-            const io = socket_1.getIO();
-            const sessionName = whatsapp.name;
-            let sessionCfg;
-            if (whatsapp && whatsapp.session) {
-                sessionCfg = JSON.parse(whatsapp.session);
-            }
-            const wbot = new whatsapp_web_js_1.Client({
-                session: sessionCfg,
-                puppeteer: {
-                    executablePath: process.env.CHROME_BIN || undefined
+
+    exports.initWbot = (whatsapp) => __awaiter(void 0, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            try {
+                const io = socket_1.getIO();
+                const sessionName = whatsapp.name;
+                let sessionCfg;
+                if (whatsapp && whatsapp.session) {
+                    sessionCfg = JSON.parse(whatsapp.session);
                 }
-            });
-            wbot.initialize();
-            wbot.on("qr", (qr) => __awaiter(void 0, void 0, void 0, function* () {
-                logger_1.logger.info("Session:", sessionName);
-                qrcode_terminal_1.default.generate(qr, { small: true });
-                yield whatsapp.update({ qrcode: qr, status: "qrcode", retries: 0 });
-                const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
-                if (sessionIndex === -1) {
-                    wbot.id = whatsapp.id;
-                    sessions.push(wbot);
-                }
-                io.emit("whatsappSession", {
-                    action: "update",
-                    session: whatsapp
+                const wbot = new whatsapp_web_js_1.Client({
+                    session: sessionCfg,
+                    puppeteer: {
+                        executablePath: process.env.CHROME_BIN || undefined
+                    }
                 });
-            }));
-            wbot.on("authenticated", (session) => __awaiter(void 0, void 0, void 0, function* () {
-                logger_1.logger.info(`Session: ${sessionName} AUTHENTICATED`);
-                yield whatsapp.update({
-                    session: JSON.stringify(session)
-                });
-            }));
-            wbot.on("auth_failure", (msg) => __awaiter(void 0, void 0, void 0, function* () {
-                console.error(`Session: ${sessionName} AUTHENTICATION FAILURE! Reason: ${msg}`);
-                if (whatsapp.retries > 1) {
-                    yield whatsapp.update({ session: "", retries: 0 });
-                }
-                const retry = whatsapp.retries;
-                yield whatsapp.update({
-                    status: "DISCONNECTED",
-                    retries: retry + 1
-                });
-                io.emit("whatsappSession", {
-                    action: "update",
-                    session: whatsapp
-                });
-                reject(new Error("Error starting whatsapp session."));
-            }));
-            wbot.on("ready", () => __awaiter(void 0, void 0, void 0, function* () {
-                logger_1.logger.info(`Session: ${sessionName} READY`);
-                yield whatsapp.update({
-                    status: "CONNECTED",
-                    qrcode: "",
-                    retries: 0
-                });
-                io.emit("whatsappSession", {
-                    action: "update",
-                    session: whatsapp
-                });
-                const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
-                if (sessionIndex === -1) {
-                    wbot.id = whatsapp.id;
-                    sessions.push(wbot);
-                }
-                wbot.sendPresenceAvailable();
-                yield syncUnreadMessages(wbot);
-                if (process.env.DIALOGFLOWCONFIG) {
+                wbot.initialize();
+                wbot.on("qr", (qr) => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info("Session:", sessionName);
+                    qrcode_terminal_1.default.generate(qr, { small: true });
+                    yield whatsapp.update({ qrcode: qr, status: "qrcode", retries: 0 });
+                    const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
+                    if (sessionIndex === -1) {
+                        wbot.id = whatsapp.id;
+                        sessions.push(wbot);
+                    }
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                }));
+                wbot.on("authenticated", (session) => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info(`Session: ${sessionName} AUTHENTICATED`);
+                    yield whatsapp.update({
+                        session: JSON.stringify(session)
+                    });
+                }));
+                wbot.on("auth_failure", (msg) => __awaiter(void 0, void 0, void 0, function* () {
+                    console.error(`Session: ${sessionName} AUTHENTICATION FAILURE! Reason: ${msg}`);
+                    if (whatsapp.retries > 1) {
+                        yield whatsapp.update({ session: "", retries: 0 });
+                    }
+                    const retry = whatsapp.retries;
+                    yield whatsapp.update({
+                        status: "DISCONNECTED",
+                        retries: retry + 1
+                    });
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                    reject(new Error("Error starting whatsapp session."));
+                }));
+                wbot.on("ready", () => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info(`Session: ${sessionName} READY`);
+                    yield whatsapp.update({
+                        status: "CONNECTED",
+                        qrcode: "",
+                        retries: 0
+                    });
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                    const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
+                    if (sessionIndex === -1) {
+                        wbot.id = whatsapp.id;
+                        sessions.push(wbot);
+                    }
+                    wbot.sendPresenceAvailable();
+                    yield syncUnreadMessages(wbot);
+                    // if (process.env.DIALOGFLOWKEY.length > 0) {
                     wbot.on('message', async msg => {
                         if (msg.type === "chat") {
-                            //integração de texto dialogflow
-                            let textoResposta = await executeQueries(process.env.DIALOGFLOWKEY, msg.from, [msg.body], 'pt-BR')
+                            const StatusWbot = await ShowTicketService_1.default(whatsapp.id);
+                            let textoResposta = null;
+                            if (StatusWbot.dataValues.status === "pending") {
+                                textoResposta = await executeQueries(process.env.DIALOGFLOWKEY, msg.from, [msg.body], 'pt-BR')
+                            }
                             //msg.reply("Estou processando sua mensagem\n\n" + textoResposta.replace(/\\n/g, '\n'));
                             if (textoResposta === null) {
                                 return;
                             }
                             else {
-                                msg.reply("*BOT ZDG:*\n" + textoResposta.replace(/\\n/g, '\n'));
+                                msg.reply(textoResposta.replace(/\\n/g, '\n'));
                             }
                         }
                     });
-                }
-                resolve(wbot);
-            }));
-        }
-        catch (err) {
-            logger_1.logger.error(err);
-        }
+                    // }
+                    resolve(wbot);
+                }));
+            }
+            catch (err) {
+                logger_1.logger.error(err);
+            }
+        });
     });
-});
+} else {
+    exports.initWbot = (whatsapp) => __awaiter(void 0, void 0, void 0, function* () {
+        return new Promise((resolve, reject) => {
+            try {
+                const io = socket_1.getIO();
+                const sessionName = whatsapp.name;
+                let sessionCfg;
+                if (whatsapp && whatsapp.session) {
+                    sessionCfg = JSON.parse(whatsapp.session);
+                }
+                const wbot = new whatsapp_web_js_1.Client({
+                    session: sessionCfg,
+                    puppeteer: {
+                        executablePath: process.env.CHROME_BIN || undefined
+                    }
+                });
+                wbot.initialize();
+                wbot.on("qr", (qr) => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info("Session:", sessionName);
+                    qrcode_terminal_1.default.generate(qr, { small: true });
+                    yield whatsapp.update({ qrcode: qr, status: "qrcode", retries: 0 });
+                    const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
+                    if (sessionIndex === -1) {
+                        wbot.id = whatsapp.id;
+                        sessions.push(wbot);
+                    }
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                }));
+                wbot.on("authenticated", (session) => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info(`Session: ${sessionName} AUTHENTICATED`);
+                    yield whatsapp.update({
+                        session: JSON.stringify(session)
+                    });
+                }));
+                wbot.on("auth_failure", (msg) => __awaiter(void 0, void 0, void 0, function* () {
+                    console.error(`Session: ${sessionName} AUTHENTICATION FAILURE! Reason: ${msg}`);
+                    if (whatsapp.retries > 1) {
+                        yield whatsapp.update({ session: "", retries: 0 });
+                    }
+                    const retry = whatsapp.retries;
+                    yield whatsapp.update({
+                        status: "DISCONNECTED",
+                        retries: retry + 1
+                    });
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                    reject(new Error("Error starting whatsapp session."));
+                }));
+                wbot.on("ready", () => __awaiter(void 0, void 0, void 0, function* () {
+                    logger_1.logger.info(`Session: ${sessionName} READY`);
+                    yield whatsapp.update({
+                        status: "CONNECTED",
+                        qrcode: "",
+                        retries: 0
+                    });
+                    io.emit("whatsappSession", {
+                        action: "update",
+                        session: whatsapp
+                    });
+                    const sessionIndex = sessions.findIndex(s => s.id === whatsapp.id);
+                    if (sessionIndex === -1) {
+                        wbot.id = whatsapp.id;
+                        sessions.push(wbot);
+                    }
+                    wbot.sendPresenceAvailable();
+                    yield syncUnreadMessages(wbot);
+                    resolve(wbot);
+                }));
+            }
+            catch (err) {
+                logger_1.logger.error(err);
+            }
+        });
+    });
+}
 exports.getWbot = (whatsappId) => {
     const sessionIndex = sessions.findIndex(s => s.id === whatsappId);
     if (sessionIndex === -1) {
